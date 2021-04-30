@@ -1,0 +1,52 @@
+---
+- hosts: all
+
+  tasks:
+    - name: check git
+      shell: git --version
+      register: check_git
+      ignore_errors: true
+    - debug:
+        msg: "git --version: {{ check_git.rc }}"
+    - name: install packages
+      become: true
+      package:
+        state: present
+        name:
+          - tmux
+          - vim
+          - wget
+          - htop
+          - docker
+    - name: install git when not found
+      when: check_git.rc != 0
+      become: true
+      package:
+        state: present
+        name:
+          - git
+    - name: enable docker
+      become: true
+      service:
+        name: docker
+        enabled: true
+        state: started
+    - name: add ec2-user to docker group
+      become: true
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+    - name: clone dotfiles
+      git:
+        repo: https://github.com/yoshi-self/dotfiles.git
+        dest: ~/dotfiles
+        recursive: yes
+    - name: set up dotfiles
+      shell:
+        chdir: ~/
+        cmd: |
+          grep -c 'dotfiles' ~/.bashrc || echo 'source ~/dotfiles/.bashrc' >> ~/.bashrc
+          grep -c 'dotfiles' ~/.vimrc || echo 'source ~/dotfiles/.vimrc' >> ~/.vimrc
+          grep -c 'dotfiles' ~/tmux.conf || echo 'source ~/dotfiles/tmux.conf' > ~/tmux.conf
+          grep -c 'dotfiles' ~/.gitconfig || echo -e "[include]\n    path = ~/dotfiles/.gitconfig" > ~/.gitconfig

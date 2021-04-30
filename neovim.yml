@@ -1,0 +1,50 @@
+---
+- hosts: all
+
+  tasks:
+    - name: check
+      shell: nvim --version
+      register: check_installed
+      ignore_errors: true
+    - debug:
+        msg: "nvim --version: {{ check_installed.rc }}"
+    - name: prerequisites
+      when: check_installed.rc != 0
+      become: true
+      package:
+       state: present
+       name:
+         - ninja-build
+         - libtool
+         - autoconf
+         - automake
+         - cmake
+         - gcc
+         - gcc-c++
+         - make
+         - pkgconfig
+         - unzip
+         - patch
+         - gettext
+    - name: git clone
+      when: check_installed.rc != 0
+      git:
+        repo: https://github.com/neovim/neovim.git
+        dest: ~/neovim
+        depth: 1
+    - name: build
+      when: check_installed.rc != 0
+      shell:
+        chdir: ~/neovim
+        cmd: |
+          make CMAKE_BUILD_TYPE=Release
+          sudo make install
+    - name: make config dir
+      file:
+        path: ~/.config
+        state: directory
+    - name: make symlink for nvim
+      file:
+        path: ~/.config/nvim
+        state: link
+        src: ~/dotfiles/nvim
